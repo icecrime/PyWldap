@@ -7,7 +7,7 @@ Python wrapper over Windows Wldap32 library.
 Overview
 -------------
 
-This package provides bindings and object oriented wrapper over Wldap32.dll (see [Microsoft MSDN page](http://msdn.microsoft.com/en-us/library/windows/desktop/aa366961(v=vs.85).aspx>) regarding this library).
+This package provides bindings and object oriented wrapper over Wldap32.dll (see [Microsoft MSDN page](http://msdn.microsoft.com/en-us/library/windows/desktop/aa366961(v=vs.85).aspx) regarding this library).
 
 **If you need to access LDAP from Python, you most likely want [Python LDAP](http://www.python-ldap.org/)**. However, Python LDAP is built over OpenLDAP, which lacks binding methods other than LDAP\_AUTH\_SIMPLE.
 
