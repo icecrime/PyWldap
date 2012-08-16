@@ -489,10 +489,10 @@ class ldap(object):
         return not ret and Message(self._l, result) or None
 
     def search(self, base, scope, filt, attr, attronly):
-        return _search(dll.ldap_search, base, scope, filt, attr, attronly)
+        return self._search(dll.ldap_search, base, scope, filt, attr, attronly)
 
     def search_s(self, base, scope, filt, attr, attronly):
-        return _search(dll.ldap_search_s, base, scope, filt, attr, attronly)
+        return self._search(dll.ldap_search_s, base, scope, filt, attr, attronly)
 
     def simple_bind(self, dn, passwd):
         return dll.ldap_simple_bind(self._l, dn, passwd)
