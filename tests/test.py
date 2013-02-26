@@ -1,4 +1,3 @@
-from ctypes import c_char_p
 import os
 import unittest
 
@@ -41,42 +40,31 @@ class TestWldap(unittest.TestCase):
     def test_ldap_bind_s(self, dll):
         self.validate_call_forwarding(dll, 'bind_s', ('dn', 'cred', 'method'))
 
-    def test_ldap_search(self, dll):
-        attr = ['attr1', 'attr2', 'attr3']
+    def validate_search(self, dll, func, attr):
         args = ('base', 'scope', 'filt', attr, 'attronly')
         l = wldap.ldap()
-        l.search(*args)
+        getattr(l, func)(*args)
 
+        cfunc = getattr(dll, 'ldap_' + func)
         cargs = ('base', 'scope', 'filt', mock.ANY, 'attronly', mock.ANY)
-        dll.ldap_search.assert_called_once_with(mock.ANY, *cargs)
+        cfunc.assert_called_once_with(mock.ANY, *cargs)
+        self.assertSequenceEqual(cfunc.call_args[0][4], attr + [None])
 
-        cattr = dll.ldap_search.call_args[0][4]  # Attrs array
-        self.assertEqual(len(attr) + 1, len(cattr))
-        self.assertIsNone(cattr[-1])
-        self.assertItemsEqual(attr, cattr[:-1])
+    def test_ldap_search(self, dll):
+        attr = [b'attr1', b'attr2', b'attr3']
+        self.validate_search(dll, 'search', attr)
 
     def test_ldap_search_s(self, dll):
-        attr = ['attr1', 'attr2', 'attr3']
-        args = ('base', 'scope', 'filt', attr, 'attronly')
-        l = wldap.ldap()
-        l.search_s(*args)
-
-        cargs = ('base', 'scope', 'filt', mock.ANY, 'attronly', mock.ANY)
-        dll.ldap_search_s.assert_called_once_with(mock.ANY, *cargs)
-        cattr = dll.ldap_search_s.call_args[0][4]  # Attrs array
-        self.assertEqual(len(attr) + 1, len(cattr))
-        self.assertIsNone(cattr[-1])
-        self.assertItemsEqual(attr, cattr[:-1])
+        attr = [b'attr1', b'attr2', b'attr3']
+        self.validate_search(dll, 'search_s', attr)
 
     def test_ldap_search_no_attrs(self, dll):
-        args = ('base', 'scope', 'filt', [], 'attronly')
-        l = wldap.ldap()
-        l.search(*args)
+        attr = []
+        self.validate_search(dll, 'search', attr)
 
-        cargs = ('base', 'scope', 'filt', mock.ANY, 'attronly', mock.ANY)
-        dll.ldap_search.assert_called_once_with(mock.ANY, *cargs)
-        cattr = dll.ldap_search.call_args[0][4]  # Attrs array
-        self.assertItemsEqual(cattr, (c_char_p * 1)(c_char_p()))
+    def test_ldap_search_s_no_attrs(self, dll):
+        attr = []
+        self.validate_search(dll, 'search_s', attr)
 
     def test_ldap_simple_bind(self, dll):
         self.validate_call_forwarding(dll, 'simple_bind', ('dn', 'password'))
