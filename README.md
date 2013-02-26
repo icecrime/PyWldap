@@ -1,6 +1,8 @@
 PyWldap
 =======
 
+[![Build Status](https://travis-ci.org/icecrime/PyWldap.png)](https://travis-ci.org/icecrime/PyWldap)
+
 Python wrapper over Windows Wldap32 library.
 
 Overview
@@ -13,8 +15,8 @@ This package provides bindings and object oriented wrapper over Wldap32.dll (see
 Usage
 -------------
 
-    >>> import Wldap
-    >>> l = Wldap.ldap('ldap://xxx')
-    >>> l.bind_s('', '', Wldap.LDAP_AUTH_DIGEST)
-    >>> m = l.search_s('DN=world', Wldap.LDAP_SCOPE_SUBTREE,
+    >>> import wldap
+    >>> l = wldap.ldap('ldap://xxx')
+    >>> l.bind_s('', '', wldap.LDAP_AUTH_DIGEST)
+    >>> m = l.search_s('DN=world', wldap.LDAP_SCOPE_SUBTREE,
                        '(&(objectClass=user)(cn=plop))', ['someAttr'], 0)
