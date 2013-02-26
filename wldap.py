@@ -518,4 +518,3 @@ def parseMessage(message):
     for entry in message:
         output.update({a.name: list(a.values) for a in entry})
     return output
-
