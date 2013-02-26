@@ -186,9 +186,9 @@ LDAP_SCOPE_SUBTREE              = 0x02
 
 ##############################################################################
 
-LDAP_AUTH_SIMPLE                = 0x80L
-LDAP_AUTH_SASL                  = 0x83L
-LDAP_AUTH_OTHERKIND             = 0x86L
+LDAP_AUTH_SIMPLE                = 0x80
+LDAP_AUTH_SASL                  = 0x83
+LDAP_AUTH_OTHERKIND             = 0x86
 LDAP_AUTH_SICILY                = (LDAP_AUTH_OTHERKIND | 0x0200)
 LDAP_AUTH_MSN                   = (LDAP_AUTH_OTHERKIND | 0x0800)
 LDAP_AUTH_NTLM                  = (LDAP_AUTH_OTHERKIND | 0x1000)
