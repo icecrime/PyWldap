@@ -19,4 +19,4 @@ Usage
     >>> l = wldap.ldap('ldap://xxx')
     >>> l.bind_s('', '', wldap.LDAP_AUTH_DIGEST)
     >>> m = l.search_s('DN=world', wldap.LDAP_SCOPE_SUBTREE,
-                       '(&(objectClass=user)(cn=plop))', ['someAttr'], 0)
+                       '(&(objectClass=user)(cn=icecrime))', ['someAttr'], 0)
