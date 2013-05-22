@@ -22,19 +22,13 @@ try:
 except ImportError:
     import mock
 
-# Wldap does a 'from ctypes import ...' and opens the dll at import time, so we
-# have to mock.patch early.
+# Wldap opens the dll at import time, so we have to mock.patch early.
 with mock.patch('ctypes.cdll'):
     import wldap
 
 
-@mock.patch('wldap.dll')
+@mock.patch('wldap.wldap32_dll._dll')
 class TestWldap(unittest.TestCase):
-
-    def validate_call_forwarding(self, dll, func, args):
-        l = wldap.ldap()
-        getattr(l, func)(*args)
-        getattr(dll, 'ldap_' + func).assert_called_once_with(mock.ANY, *args)
 
     def test_ldap_init_default(self, dll):
         wldap.ldap()
@@ -54,40 +48,53 @@ class TestWldap(unittest.TestCase):
     def test_ldap_bind_s(self, dll):
         self.validate_call_forwarding(dll, 'bind_s', ('dn', 'cred', 'method'))
 
-    def validate_search(self, dll, func, attr):
-        args = ('base', 'scope', 'filt', attr, 'attronly')
-        l = wldap.ldap()
-        getattr(l, func)(*args)
-
-        cfunc = getattr(dll, 'ldap_' + func)
-        cargs = ('base', 'scope', 'filt', mock.ANY, 'attronly', mock.ANY)
-        cfunc.assert_called_once_with(mock.ANY, *cargs)
-        self.assertSequenceEqual(cfunc.call_args[0][4], attr + [None])
-
     def test_ldap_search(self, dll):
-        attr = [b'attr1', b'attr2', b'attr3']
-        self.validate_search(dll, 'search', attr)
+        attr = ['attr1', 'attr2', 'attr3']
+        self.validate_search(dll, 'search', attr, 'searchW')
 
     def test_ldap_search_s(self, dll):
-        attr = [b'attr1', b'attr2', b'attr3']
-        self.validate_search(dll, 'search_s', attr)
+        attr = ['attr1', 'attr2', 'attr3']
+        self.validate_search(dll, 'search_s', attr, 'search_sW')
 
     def test_ldap_search_no_attrs(self, dll):
         attr = []
-        self.validate_search(dll, 'search', attr)
+        self.validate_search(dll, 'search', attr, 'searchW')
 
     def test_ldap_search_s_no_attrs(self, dll):
         attr = []
-        self.validate_search(dll, 'search_s', attr)
+        self.validate_search(dll, 'search_s', attr, 'search_sW')
 
     def test_ldap_simple_bind(self, dll):
-        self.validate_call_forwarding(dll, 'simple_bind', ('dn', 'password'))
+        self.validate_call_forwarding(dll, 'simple_bind', ('dn', 'password'),
+                                      'simple_bindW')
 
     def test_ldap_simple_bind_s(self, dll):
-        self.validate_call_forwarding(dll, 'simple_bind_s', ('dn', 'password'))
+        self.validate_call_forwarding(dll, 'simple_bind_s', ('dn', 'password'),
+                                      'simple_bind_sW')
 
     def test_ldap_unbind(self, dll):
         self.validate_call_forwarding(dll, 'unbind', ())
 
     def test_ldap_unbind_s(self, dll):
         self.validate_call_forwarding(dll, 'unbind_s', ())
+
+    def validate_call_forwarding(self, dll, func, args, api_func=None):
+        l = wldap.ldap()
+        getattr(l, func)(*args)
+
+        cfunc = getattr(dll, 'ldap_' + (api_func or func))
+        cfunc.assert_called_once_with(mock.ANY, *args)
+
+    def validate_search(self, dll, func, attr, api_func=None):
+        args = ('base', 'scope', 'filt', attr, 'attronly')
+        l = wldap.ldap()
+        getattr(l, func)(*args)
+
+        cfunc = dll.ldap_searchW
+        cargs = ('base', 'scope', 'filt', mock.ANY, 'attronly', mock.ANY)
+        cfunc.assert_called_once_with(mock.ANY, *cargs)
+        self.assertSequenceEqual(cfunc.call_args[0][4], attr + [None])
+
+
+if __name__ == "__main__":
+    unittest.main()

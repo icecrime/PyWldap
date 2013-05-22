@@ -196,7 +196,6 @@ class ldap(object):
         attr = (c_wchar_p * len(attr))(*attr)
 
         # Last parameter is a LDAPMessage**, thus the need for a byref().
-        print 'Call', self._l
         ret = fn(self._l, base, scope, filt, attr, attronly, byref(result))
         return not ret and Message(self._l, result) or None
 
