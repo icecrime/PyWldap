@@ -15,7 +15,7 @@
 from ctypes import byref, c_void_p, c_wchar_p
 from itertools import takewhile
 
-import wldap32_dll as dll
+from . import wldap32_dll as dll
 
 
 ###############################################################################
