@@ -1,10 +1,17 @@
 PyWldap Changelog
 =================
 
-Version 0.2.0
+Version 0.2.1
 -------------
 
 Released on May 27th, 2013
+
+- Python 3.x compat: use __next__ for iterators
+
+Version 0.2.0
+-------------
+
+Released on May 26th, 2013
 
 - Switch to full unicode
     - Breaking for Python 2.x code: returned values are now of type `unicode`
