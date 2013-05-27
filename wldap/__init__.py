@@ -212,6 +212,9 @@ class MessageEntryIterator(object):
         if hasattr(self, '_berElem') and self._berElem:
             dll.ber_free(self._berElem, 0)
 
+    def __next__(self):
+        return self.next()
+
     def next(self):
         # Because of the first / next API asymmetry, we're always 'off by one',
         # so the previously fetched value is tested before moving on.
@@ -258,6 +261,9 @@ class MessageIterator(object):
         """
         self._ldap = ldap
         self._current = dll.ldap_first_entry(self._ldap, message)
+
+    def __next__(self):
+        return self.next()
 
     def next(self):
         # Because of the first / next API asymmetry, we're always 'off by one',
