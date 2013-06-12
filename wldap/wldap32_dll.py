@@ -14,6 +14,9 @@
 
 from ctypes import POINTER, cdll, c_int, c_void_p, c_ulong, c_wchar_p
 
+from wldap.wldap32_structures import BerElement, LDAP_BERVAL, LDAP_TIMEVAL
+from wldap.wldap32_structures import LDAP, LDAPMessage, LDAPMod
+
 
 # Extract from Winldap.h:
 #
@@ -36,6 +39,64 @@ from ctypes import POINTER, cdll, c_int, c_void_p, c_ulong, c_wchar_p
 
 dll = cdll.Wldap32
 
+
+# Every API calls errors will be raised as an LdapError which holds the error
+# code and the associated message.
+
+class LdapError(Exception):
+    def __init__(self, error_code=None):
+        self.code = error_code or LdapGetLastError()
+
+    @property
+    def message(self):
+        if not hasattr(self, 'message'):
+            self.message = ldap_err2string(self.error_code)
+        return self.message
+
+
+# Error check functions depend on the type of result.
+
+def errcheck_pointer(result, func, arguments):
+    """Error checking strategy for functions returning a pointer.
+
+    Raise an LdapError if the returned pointer is NULL.
+    """
+    if not result:  # c_void_p has __nonzero__
+        raise LdapError(func, arguments)
+    return result
+
+
+def errcheck_retcode(result, func, arguments):
+    """Error checking strategy for functions returning an error code. This
+    family of functions include synchronous calls such as ldap_bind_s.
+
+    Raise an LdapError if the returned code is different from 0.
+    """
+    if result != 0:
+        raise LdapError(error_code=result)
+    return result
+
+
+def errcheck_sentinel(result, func, arguments):
+    """Error checking strategy for functions returning a sentinel value. This
+    family of functions include asynchronous calls such as ldap_bind.
+    """
+    if result == -1:
+        raise LdapError()
+    return result
+
+
+# The exposed_functions sequence describes the API calls we want to export and
+# route. The 'structure' is:
+#
+#   [
+#       'module_function_name',
+#       'underlying_function_name',
+#       return_type,
+#       [arg1_type, arg2_type, ...],
+#       error_checking_function
+#   ]
+
 exposed_functions = [
 
     # void ber_free(
@@ -46,7 +107,34 @@ exposed_functions = [
         'ber_free',
         'ber_free',
         None,
-        [c_void_p, c_int]
+        [BerElement.pointer, c_int],
+        None
+    ],
+
+    # ULONG ldap_add_s(
+    #   _In_  LDAP *ld,
+    #   _In_  PCHAR dn,
+    #   _In_  LDAPMod *attrs[]
+    # );
+    [
+        'ldap_add_s',
+        'ldap_add_sW',
+        c_ulong,
+        [LDAP.pointer, c_wchar_p, POINTER(LDAPMod.pointer)],
+        errcheck_retcode
+    ],
+
+    # ULONG ldap_add(
+    #   _In_  LDAP *ld,
+    #   _In_  PCHAR dn,
+    #   _In_  LDAPMod *attrs[]
+    # );
+    [
+        'ldap_add',
+        'ldap_addW',
+        c_ulong,
+        [LDAP.pointer, c_wchar_p, POINTER(LDAPMod.pointer)],
+        errcheck_sentinel
     ],
 
     # ULONG ldap_abandon(
@@ -57,7 +145,8 @@ exposed_functions = [
         'ldap_abandon',
         'ldap_abandon',
         c_ulong,
-        [c_void_p, c_ulong]
+        [LDAP.pointer, c_ulong],
+        errcheck_sentinel
     ],
 
     # ULONG ldap_bind_s(
@@ -70,7 +159,8 @@ exposed_functions = [
         'ldap_bind_s',
         'ldap_bind_sW',
         c_ulong,
-        [c_void_p, c_wchar_p, c_wchar_p, c_ulong]
+        [LDAP.pointer, c_wchar_p, c_wchar_p, c_ulong],
+        errcheck_retcode
     ],
 
     # ULONG ldap_bind(
@@ -83,7 +173,20 @@ exposed_functions = [
         'ldap_bind',
         'ldap_bindW',
         c_ulong,
-        [c_void_p, c_wchar_p, c_wchar_p, c_ulong]
+        [LDAP.pointer, c_wchar_p, c_wchar_p, c_ulong],
+        errcheck_sentinel
+    ],
+
+    # ULONG ldap_check_filter(
+    #   _In_  LDAP *ld,
+    #   _In_  PWCHAR SearchFilter
+    # );
+    [
+        'ldap_check_filter',
+        'ldap_check_filterW',
+        c_ulong,
+        [LDAP.pointer, c_wchar_p],
+        errcheck_retcode
     ],
 
     # ULONG LDAPAPI ldap_cleanup(
@@ -93,7 +196,20 @@ exposed_functions = [
         'ldap_cleanup',
         'ldap_cleanup',
         c_ulong,
-        [c_void_p]
+        [c_void_p],
+        errcheck_retcode
+    ],
+
+    # ULONG ldap_count_entries(
+    #   _In_  LDAP *ld,
+    #   _In_  LDAPMessage *res
+    # );
+    [
+        'ldap_count_entries',
+        'ldap_count_entries',
+        c_ulong,
+        [LDAP.pointer, LDAPMessage.pointer],
+        errcheck_sentinel
     ],
 
     # PCHAR ldap_first_attribute(
@@ -102,9 +218,46 @@ exposed_functions = [
     #   __out  BerElement **ptr
     # );
     [
-        'ldap_first_attribute', 'ldap_first_attributeW',
+        'ldap_first_attribute',
+        'ldap_first_attributeW',
         c_wchar_p,
-        [c_void_p, c_void_p, POINTER(c_void_p)]
+        [LDAP.pointer, LDAPMessage.pointer, POINTER(BerElement.pointer)],
+        errcheck_pointer
+    ],
+
+    # ULONG ldap_delete_s(
+    #   _In_  LDAP *ld,
+    #   _In_  PCHAR dn
+    # );
+    [
+        'ldap_delete_s',
+        'ldap_delete_sW',
+        c_ulong,
+        [LDAP.pointer, c_wchar_p],
+        errcheck_retcode
+    ],
+
+    # ULONG ldap_delete(
+    #   _In_  LDAP *ld,
+    #   _In_  PCHAR dn
+    # );
+    [
+        'ldap_delete',
+        'ldap_deleteW',
+        c_ulong,
+        [LDAP.pointer, c_wchar_p],
+        errcheck_sentinel
+    ],
+
+    # PCHAR ldap_err2string(
+    #   _In_  ULONG err
+    # );
+    [
+        'ldap_err2string',
+        'ldap_err2stringW',
+        c_wchar_p,
+        [c_ulong],
+        None  # Returns null on failure
     ],
 
     # LDAPMessage* ldap_first_entry(
@@ -114,8 +267,22 @@ exposed_functions = [
     [
         'ldap_first_entry',
         'ldap_first_entry',
-        c_void_p,
-        [c_void_p, c_void_p]
+        LDAPMessage.pointer,
+        [LDAP.pointer, LDAPMessage.pointer],
+        errcheck_pointer
+    ],
+
+    # ULONG ldap_get_option(
+    #   __in   LDAP *ld,
+    #   __in   int option,
+    #   __out  void *outvalue
+    # );
+    [
+        'ldap_get_option',
+        'ldap_get_option',
+        c_ulong,
+        [LDAP.pointer, c_int, c_void_p],
+        errcheck_retcode
     ],
 
     # PCHAR* ldap_get_values(
@@ -127,19 +294,21 @@ exposed_functions = [
         'ldap_get_values',
         'ldap_get_valuesW',
         POINTER(c_wchar_p),
-        [c_void_p, c_void_p, c_wchar_p]
+        [LDAP.pointer, LDAPMessage.pointer, c_wchar_p],
+        errcheck_pointer
     ],
-    
-    # ULONG ldap_get_option(
-    #   __in   LDAP *ld,
-    #   __in   int option,
-    #   __out  void *outvalue
+
+    # struct berval** ldap_get_values_len(
+    #   _In_  LDAP *ExternalHandle,
+    #   _In_  LDAPMessage *Message,
+    #   _In_  PCHAR attr
     # );
     [
-        'ldap_get_option',
-        'ldap_get_option',
-        c_ulong,
-        [c_void_p, c_int, c_void_p]
+        'ldap_get_values_len',
+        'ldap_get_values_lenW',
+        POINTER(LDAP_BERVAL.pointer),
+        [LDAP.pointer, LDAPMessage.pointer, c_wchar_p],
+        errcheck_pointer
     ],
 
     # LDAP* ldap_init(
@@ -149,8 +318,9 @@ exposed_functions = [
     [
         'ldap_init',
         'ldap_initW',
-        c_void_p,
-        [c_wchar_p, c_ulong]
+        LDAP.pointer,
+        [c_wchar_p, c_ulong],
+        errcheck_pointer
     ],
 
     # VOID ldap_memfree(
@@ -160,7 +330,8 @@ exposed_functions = [
         'ldap_memfree',
         'ldap_memfreeW',
         None,
-        [c_wchar_p]
+        [c_wchar_p],
+        None
     ],
 
     # ULONG ldap_msgfree(
@@ -170,7 +341,8 @@ exposed_functions = [
         'ldap_msgfree',
         'ldap_msgfree',
         c_ulong,
-        [c_void_p]
+        [LDAPMessage.pointer],
+        None  # Always returns LDAP_SUCCESS
     ],
 
     # PCHAR ldap_next_attribute(
@@ -182,7 +354,8 @@ exposed_functions = [
         'ldap_next_attribute',
         'ldap_next_attributeW',
         c_wchar_p,
-        [c_void_p, c_void_p, c_void_p]
+        [LDAP.pointer, LDAPMessage.pointer, BerElement.pointer],
+        errcheck_pointer
     ],
 
     # LDAPMessage* ldap_next_entry(
@@ -192,8 +365,9 @@ exposed_functions = [
     [
         'ldap_next_entry',
         'ldap_next_entry',
-        c_void_p,
-        [c_void_p, c_void_p]
+        LDAPMessage.pointer,
+        [LDAP.pointer, LDAPMessage.pointer],
+        errcheck_pointer
     ],
 
     # ULONG ldap_result(
@@ -207,7 +381,9 @@ exposed_functions = [
         'ldap_result',
         'ldap_result',
         c_ulong,
-        [c_void_p, c_ulong, c_ulong, c_void_p, POINTER(c_void_p)]
+        [LDAP.pointer, c_ulong, c_ulong, LDAP_TIMEVAL.pointer,
+         POINTER(LDAPMessage.pointer)],
+        errcheck_sentinel
     ],
 
     # ULONG ldap_search_s(
@@ -223,8 +399,9 @@ exposed_functions = [
         'ldap_search_s',
         'ldap_search_sW',
         c_ulong,
-        [c_void_p, c_wchar_p, c_ulong, c_wchar_p, POINTER(c_wchar_p), c_ulong,
-         POINTER(c_void_p)]
+        [LDAP.pointer, c_wchar_p, c_ulong, c_wchar_p, POINTER(c_wchar_p),
+         c_ulong, POINTER(LDAPMessage.pointer)],
+        errcheck_retcode
     ],
 
     # ULONG ldap_search(
@@ -239,7 +416,9 @@ exposed_functions = [
         'ldap_search',
         'ldap_searchW',
         c_ulong,
-        [c_void_p, c_wchar_p, c_ulong, c_wchar_p, POINTER(c_wchar_p), c_ulong]
+        [LDAP.pointer, c_wchar_p, c_ulong, c_wchar_p, POINTER(c_wchar_p),
+         c_ulong],
+        errcheck_sentinel
     ],
 
     # ULONG ldap_set_option(
@@ -251,7 +430,8 @@ exposed_functions = [
         'ldap_set_option',
         'ldap_set_optionW',
         c_ulong,
-        [c_void_p, c_int, c_void_p]
+        [LDAP.pointer, c_int, c_void_p],
+        errcheck_retcode
     ],
 
     # ULONG ldap_simple_bind_s(
@@ -263,7 +443,8 @@ exposed_functions = [
         'ldap_simple_bind_s',
         'ldap_simple_bind_sW',
         c_ulong,
-        [c_void_p, c_wchar_p, c_wchar_p]
+        [LDAP.pointer, c_wchar_p, c_wchar_p],
+        errcheck_retcode
     ],
 
     # ULONG ldap_simple_bind(
@@ -275,7 +456,8 @@ exposed_functions = [
         'ldap_simple_bind',
         'ldap_simple_bindW',
         c_ulong,
-        [c_void_p, c_wchar_p, c_wchar_p]
+        [LDAP.pointer, c_wchar_p, c_wchar_p],
+        errcheck_sentinel
     ],
 
     # ULONG ldap_unbind_s(
@@ -285,7 +467,8 @@ exposed_functions = [
         'ldap_unbind_s',
         'ldap_unbind_s',
         c_ulong,
-        [c_void_p]
+        [LDAP.pointer],
+        errcheck_retcode
     ],
 
     # ULONG ldap_unbind[
@@ -295,7 +478,8 @@ exposed_functions = [
         'ldap_unbind',
         'ldap_unbind',
         c_ulong,
-        [c_void_p]
+        [LDAP.pointer],
+        errcheck_retcode
     ],
 
     # ULONG ldap_value_free(
@@ -305,7 +489,28 @@ exposed_functions = [
         'ldap_value_free',
         'ldap_value_freeW',
         c_ulong,
-        [POINTER(c_wchar_p)]
+        [POINTER(c_wchar_p)],
+        errcheck_retcode
+    ],
+
+    # ULONG ldap_value_free_len(
+    #   _In_  struct berval **vals
+    # );
+    [
+        'ldap_value_free_len',
+        'ldap_value_free_len',
+        c_ulong,
+        [POINTER(LDAP_BERVAL.pointer)],
+        errcheck_retcode
+    ],
+
+    # ULONG LdapGetLastError(void);
+    [
+        'LdapGetLastError',
+        'LdapGetLastError',
+        c_ulong,
+        [],
+        None  # Hopefully can't fail
     ],
 ]
 
@@ -314,7 +519,7 @@ def initialize():
     from collections import namedtuple
     FunctionTemplate = namedtuple(
         'FunctionTemplate',
-        ['exported_name', 'api_name', 'restype', 'argtypes']
+        ['exported_name', 'api_name', 'restype', 'argtypes', 'errcheck']
     )
 
     for exposed_function in exposed_functions:
@@ -325,6 +530,8 @@ def initialize():
         fn_ldap = getattr(dll, fn_data.api_name)
         fn_ldap.restype = fn_data.restype
         fn_ldap.argtypes = fn_data.argtypes
+        if fn_data.errcheck is not None:
+            fn_ldap.errcheck = fn_data.errcheck
 
         # Define a new module level function which forwards to the underlying
         # call. We go through getattr rather than directly referencing fn_data
