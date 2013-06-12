@@ -334,6 +334,32 @@ exposed_functions = [
         None
     ],
 
+    # ULONG ldap_modify_s(
+    #   _In_  LDAP *ld,
+    #   _In_  PCHAR dn,
+    #   _In_  LDAPMod *mods[]
+    # );
+    [
+        'ldap_modify_s',
+        'ldap_modify_sW',
+        c_ulong,
+        [LDAP.pointer, c_wchar_p, POINTER(LDAPMod.pointer)],
+        errcheck_retcode
+    ],
+
+    # ULONG ldap_modify(
+    #   _In_  LDAP *ld,
+    #   _In_  PCHAR dn,
+    #   _In_  LDAPMod *mods[]
+    # );
+    [
+        'ldap_modify',
+        'ldap_modifyW',
+        c_ulong,
+        [LDAP.pointer, c_wchar_p, POINTER(LDAPMod.pointer)],
+        errcheck_sentinel
+    ],
+
     # ULONG ldap_msgfree(
     #   __in  LDAPMessage *res
     # );

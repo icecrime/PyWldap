@@ -13,5 +13,6 @@
 # limitations under the License.
 
 from wldap.ldap import ldap
+from wldap.changeset import Changeset
 from wldap.message import parse_message
 from wldap.wldap32_constants import *

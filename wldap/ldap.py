@@ -15,6 +15,7 @@
 from ctypes import byref, c_void_p, c_wchar_p
 
 from wldap import wldap32_dll as dll
+from wldap.changeset import Changeset
 from wldap.message import Message
 from wldap.wldap32_constants import LDAP_PORT
 from wldap.wldap32_structures import LDAP_TIMEVAL
@@ -35,6 +36,28 @@ class ldap(object):
     def abandon(self, msgid):
         return dll.ldap_abandon(self._l, msgid)
 
+    def add_s(self, dn, *args):
+        """Initiate an synchronous add operation to a directory tree.
+
+        Args:
+            dn: distinguished name for the entry to add
+            *args: (attribute, values) pairs, where values is itself a sequence
+        """
+        changeset = Changeset()
+        [changeset.add(dn, attr, values) for attr, values in args]
+        return dll.ldap_add(self._l, dn, changeset.to_api_param())
+
+    def add(self, dn, *args):
+        """Initiate an asynchronous add operation to a directory tree.
+
+        Args:
+            dn: distinguished name for the entry to add
+            *args: (attribute, values) pairs, where value is a sequence
+        """
+        changeset = Changeset()
+        [changeset.add(dn, attr, values) for attr, values in args]
+        return dll.ldap_add(self._l, dn, changeset.to_api_param())
+
     def bind_s(self, dn, cred, method):
         return dll.ldap_bind_s(self._l, dn, cred, method)
 
@@ -54,7 +77,7 @@ class ldap(object):
         """Initiate a synchronous delete operation from the directory tree.
 
         Args:
-            dn: distinguished name for the entry to add
+            dn: distinguished name for the entry to delete
         """
         return dll.ldap_delete_s(self._l, dn)
 
@@ -62,9 +85,27 @@ class ldap(object):
         """Initiate a asynchronous delete operation from the directory tree.
 
         Args:
-            dn: distinguished name for the entry to add
+            dn: distinguished name for the entry to delete
         """
         return dll.ldap_delete(self._l, dn)
+
+    def modify_s(self, dn, changeset):
+        """Initiate an synchronous modify operation to the directory tree.
+
+        Args:
+            dn: distinguished name for the entry to delete
+            changeset: a wldap.Changeset containing the requested modifications
+        """
+        return dll.ldap_modify(self._l, dn, changeset.to_api_param())
+
+    def modify(self, dn, changeset):
+        """Initiate an asynchronous modify operation to the directory tree.
+
+        Args:
+            dn: distinguished name for the entry to delete
+            changeset: a wldap.Changeset containing the requested modifications
+        """
+        return dll.ldap_modify(self._l, dn, changeset.to_api_param())
 
     def _search(self, fn, base, scope, filt, attr, attronly):
         result = c_void_p()

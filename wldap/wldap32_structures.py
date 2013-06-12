@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ctypes import POINTER, Structure, Union
-from ctypes import c_char, c_long, c_ulong, c_void_p, c_wchar_p
+from ctypes import POINTER, Structure, Union, addressof, cast
+from ctypes import c_char, c_long, c_ulong, c_wchar_p
+import sys
 
 
 class BerElement(Structure):
@@ -39,8 +40,15 @@ LDAP.pointer = POINTER(LDAP)
 class LDAP_BERVAL(Structure):
     _fields_ = [
         ('bv_len', c_ulong),
-        ('bv_val', POINTER(c_char))  # Not c_char_p (which is null terminated)
+        ('bv_val', POINTER(c_char)),  # Not c_char_p (which is null terminated)
     ]
+
+    @staticmethod
+    def from_value(value):
+        # This function must be called with either an str object (in 2.x) or a
+        # bytes object (in 3.x), but not with a string: if it happens to be a
+        # unicode string, then the length won't match the byte length.
+        return LDAP_BERVAL(len(value), cast(value, POINTER(c_char)))
 
 # Nested 'typedef' for pointer type
 LDAP_BERVAL.pointer = POINTER(LDAP_BERVAL)
@@ -77,11 +85,12 @@ class LDAPMod(Structure):
     LDAP_MOD_ADD     = 0x00
     LDAP_MOD_DELETE  = 0x01
     LDAP_MOD_REPLACE = 0x02
+    LDAP_MOD_BVALUES = 0x80
 
     class mod_vals_union(Union):
         _fields_ = [
             ('modv_strvals', POINTER(c_wchar_p)),
-            ('modv_bvals', POINTER(c_void_p))
+            ('modv_bvals', POINTER(LDAP_BERVAL.pointer)),
         ]
 
     _fields_ = [
@@ -90,14 +99,30 @@ class LDAPMod(Structure):
         ('mod_vals', mod_vals_union),
     ]
 
-    def __init__(self, op, attribute, values):
-        # We need values as a C nul-terminated string array.
-        api_values = values + [None]
-        api_values = (c_wchar_p * len(values))(*values)
+    def __init__(self, op, attribute, **kwargs):
+        bin_values = kwargs.get('bin_values')
+        str_values = kwargs.get('str_values')
+        if (str_values is None) == (bin_values is None):
+            raise ValueError('Provide either str_values or bin_values')
 
+        # We _always_ use LDAP_MOD_BVALUES to specify binary values, which
+        # helps us to simply ignore the type of the provided values.
         self.mod_op = op
+        if bin_values:
+            self.mod_op |= self.LDAP_MOD_BVALUES
         self.mod_type = attribute
-        self.mod_vals.modv_strvals = api_values
+
+        # If string values are provided, we need values as a C nul-terminated
+        # string array. If binary values are provided, we need values as a C
+        # nul-terminated LDAP_BERVAL* array.
+        if 'str_values' in kwargs:
+            values = str_values + [None]
+            values = (c_wchar_p * len(values))(*values)
+            self.mod_vals.modv_strvals = values or None
+        elif 'bin_values' in kwargs:
+            values = [LDAP_BERVAL.from_value(value) for value in bin_values]
+            values = [addressof(item) for item in values] + [None]
+            self.mod_vals.modv_bvals = values or None
 
 # Nested 'typedef' for pointer type
 LDAPMod.pointer = POINTER(LDAPMod)
