@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from ctypes import string_at
 import os
 import unittest
 
@@ -26,9 +27,93 @@ except ImportError:
 with mock.patch('ctypes.cdll'):
     import wldap
 
+from wldap.wldap32_structures import LDAPMod
+
+
+class TestChangeset(unittest.TestCase):
+
+    def assertValidBinAttributes(self, attr, c_attr):
+        for idx, item in enumerate(attr):
+            c_bytes = string_at(c_attr[idx].contents.bv_val,
+                                c_attr[idx].contents.bv_len)
+            self.assertEqual(c_bytes, item)
+        self.assertFalse(c_attr[len(attr)])
+
+    def assertValidStrAttributes(self, attr, c_attr):
+        for idx, item in enumerate(attr):
+            self.assertEqual(c_attr[idx], item)
+        self.assertFalse(c_attr[len(attr)])
+
+    def _common_bin(self, fn, mod_op, attr, values):
+        changeset = wldap.Changeset()
+        fn(changeset, attr, values)
+        self.assertEqual(len(changeset.changes), 1)
+
+        op = changeset.changes[0]
+        self.assertEqual(op.mod_op, mod_op | LDAPMod.LDAP_MOD_BVALUES)
+        self.assertEqual(op.mod_type, attr)
+        self.assertValidBinAttributes(values, op.mod_vals.modv_bvals)
+
+    def _common_str(self, fn, mod_op, attr, values):
+        changeset = wldap.Changeset()
+        fn(changeset, attr, values)
+        self.assertEqual(len(changeset.changes), 1)
+
+        op = changeset.changes[0]
+        self.assertEqual(op.mod_op, mod_op)
+        self.assertEqual(op.mod_type, attr)
+        self.assertValidStrAttributes(values, op.mod_vals.modv_strvals)
+
+    def test_add(self):
+        self._common_str(wldap.Changeset.add,
+                         LDAPMod.LDAP_MOD_ADD,
+                         'attr',
+                         ['val1', 'val2'])
+
+    def test_add_binary(self):
+        self._common_bin(wldap.Changeset.add_binary,
+                         LDAPMod.LDAP_MOD_ADD,
+                         'attr',
+                         ['val1', 'val2'])
+
+    def test_delete(self):
+        self._common_str(wldap.Changeset.delete,
+                         LDAPMod.LDAP_MOD_DELETE,
+                         'attr',
+                         ['val1', 'val2'])
+
+    def test_delete_binary(self):
+        self._common_bin(wldap.Changeset.delete_binary,
+                         LDAPMod.LDAP_MOD_DELETE,
+                         'attr',
+                         ['val1', 'val2'])
+
+    def test_replace(self):
+        self._common_str(wldap.Changeset.replace,
+                         LDAPMod.LDAP_MOD_REPLACE,
+                         'attr',
+                         ['val1', 'val2'])
+
+    def test_replace_binary(self):
+        self._common_bin(wldap.Changeset.replace_binary,
+                         LDAPMod.LDAP_MOD_REPLACE,
+                         'attr',
+                         ['val1', 'val2'])
+
 
 @mock.patch('wldap.wldap32_dll.dll')
 class TestWldap(unittest.TestCase):
+
+    def assert_forward(self, dll, func, args, api_func=None):
+        l = wldap.ldap()
+        getattr(l, func)(*args)
+        cfunc = getattr(dll, 'ldap_' + (api_func or func))
+        cfunc.assert_called_once_with(mock.ANY, *args)
+
+    def assertValidAttributes(self, attr, c_attr):
+        for idx, item in enumerate(attr):
+            self.assertEqual(c_attr[idx], item)
+        self.assertEqual(c_attr[len(attr)], None)
 
     def test_ldap_init_default(self, dll):
         wldap.ldap()
@@ -49,18 +134,38 @@ class TestWldap(unittest.TestCase):
         self.assert_forward(dll, 'bind_s', ('dn', 'cred', 'method'), 'bind_sW')
 
     def test_ldap_search(self, dll):
-        attr = ['attr1', 'attr2', 'attr3']
-        self.validate_search(dll, 'search', attr, 'searchW')
+        attr = ['a1', 'a2']
+        fn = dll.ldap_searchW
+
+        l = wldap.ldap()
+        l.search('base', 'sc', 'fi', attr, True)
+        fn.assert_called_once_with(l._l, 'base', 'sc', 'fi', mock.ANY, True)
+        self.assertValidAttributes(attr, fn.call_args[0][4])
 
     def test_ldap_search_s(self, dll):
-        attr = ['attr1', 'attr2', 'attr3']
-        self.validate_search_s(dll, 'search_s', attr, 'search_sW')
+        attr = ['a1', 'a2']
+        fn = dll.ldap_search_sW
+
+        l = wldap.ldap()
+        l.search_s('base', 'sc', 'fi', attr, True)
+        fn.assert_called_once_with(l._l, 'base', 'sc', 'fi', mock.ANY, True, mock.ANY)
+        self.assertValidAttributes(attr, fn.call_args[0][4])
 
     def test_ldap_search_no_attrs(self, dll):
-        self.validate_search(dll, 'search', [], 'searchW')
+        fn = dll.ldap_searchW
+
+        l = wldap.ldap()
+        l.search('base', 'sc', 'fi', [], True)
+        fn.assert_called_once_with(l._l, 'base', 'sc', 'fi', mock.ANY, True)
+        self.assertValidAttributes([], fn.call_args[0][4])
 
     def test_ldap_search_s_no_attrs(self, dll):
-        self.validate_search_s(dll, 'search_s', [], 'search_sW')
+        fn = dll.ldap_search_sW
+
+        l = wldap.ldap()
+        l.search_s('base', 'sc', 'fi', [], True)
+        fn.assert_called_once_with(l._l, 'base', 'sc', 'fi', mock.ANY, True, mock.ANY)
+        self.assertValidAttributes([], fn.call_args[0][4])
 
     def test_ldap_simple_bind(self, dll):
         args = ('dn', 'password')
@@ -75,33 +180,6 @@ class TestWldap(unittest.TestCase):
 
     def test_ldap_unbind_s(self, dll):
         self.assert_forward(dll, 'unbind_s', ())
-
-    def assert_forward(self, dll, func, args, api_func=None):
-        l = wldap.ldap()
-        getattr(l, func)(*args)
-
-        cfunc = getattr(dll, 'ldap_' + (api_func or func))
-        cfunc.assert_called_once_with(mock.ANY, *args)
-
-    def validate_search_s(self, dll, func, attr, api_func=None):
-        args = ('base', 'scope', 'filt', attr, True)
-        l = wldap.ldap()
-        getattr(l, func)(*args)
-
-        cfunc = getattr(dll, 'ldap_' + (api_func or func))
-        cargs = ('base', 'scope', 'filt', mock.ANY, True, mock.ANY)
-        cfunc.assert_called_once_with(mock.ANY, *cargs)
-        self.assertSequenceEqual(cfunc.call_args[0][4], attr + [None])
-
-    def validate_search(self, dll, func, attr, api_func=None):
-        args = ('base', 'scope', 'filt', attr, True)
-        l = wldap.ldap()
-        getattr(l, func)(*args)
-
-        cfunc = getattr(dll, 'ldap_' + (api_func or func))
-        cargs = ('base', 'scope', 'filt', mock.ANY, True)
-        cfunc.assert_called_once_with(mock.ANY, *cargs)
-        self.assertSequenceEqual(cfunc.call_args[0][4], attr + [None])
 
 
 if __name__ == "__main__":

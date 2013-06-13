@@ -99,29 +99,45 @@ class LDAPMod(Structure):
     ]
 
     def __init__(self, op, attribute, **kwargs):
-        bin_values = kwargs.get('bin_values')
-        str_values = kwargs.get('str_values')
-        if (str_values is None) == (bin_values is None):
+        if ('str_values' in kwargs) == ('bin_values' in kwargs):
             raise ValueError('Provide either str_values or bin_values')
 
         # We _always_ use LDAP_MOD_BVALUES to specify binary values, which
         # helps us to simply ignore the type of the provided values.
         self.mod_op = op
-        if bin_values:
+        if 'bin_values' in kwargs:
             self.mod_op |= self.LDAP_MOD_BVALUES
         self.mod_type = attribute
 
         # If string values are provided, we need values as a C nul-terminated
         # string array. If binary values are provided, we need values as a C
         # nul-terminated LDAP_BERVAL* array.
-        if 'str_values' in kwargs:
-            values = str_values + [None]
-            values = (c_wchar_p * len(values))(*values)
-            self.mod_vals.modv_strvals = values or None
-        elif 'bin_values' in kwargs:
-            values = [LDAP_BERVAL.from_value(value) for value in bin_values]
-            values = [addressof(item) for item in values] + [None]
-            self.mod_vals.modv_bvals = values or None
+        bin_values = kwargs.get('bin_values')
+        str_values = kwargs.get('str_values')
+        if 'str_values' in kwargs and str_values:
+            self._fill_str_values(str_values)
+        elif 'bin_values' in kwargs and bin_values:
+            self._fill_bin_values(bin_values)
+
+    def _fill_bin_values(self, bin_values):
+        # Store the LDAP_BERVAL values to prevent Python from collecting them.
+        self._values = [LDAP_BERVAL.from_value(v) for v in bin_values]
+
+        # Create a nul-terminated array of structure addresses.
+        def _from_address(addr):
+            return cast(addressof(v), LDAP_BERVAL.pointer)
+        p_array = [_from_address(v) for v in self._values]
+        p_array.append(LDAP_BERVAL.pointer())
+
+        # Convert to a LDAP_BERVAL** and store for good.
+        p_array = (LDAP_BERVAL.pointer * len(p_array))(*p_array)
+        self.mod_vals.modv_bvals = p_array
+
+    def _fill_str_values(self, str_values):
+        values = str_values + [None]
+        values = (c_wchar_p * len(values))(*values)
+        self.mod_vals.modv_strvals = values
+
 
 # Nested 'typedef' for pointer type
 LDAPMod.pointer = POINTER(LDAPMod)

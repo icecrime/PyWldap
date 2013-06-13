@@ -41,8 +41,8 @@ class ldap(object):
             if not self._unbound:
                 self.unbind()
         except LdapError:
-            pass  # I'm a C++ developed, my religion prevents me from throwing
-                  # in a destructor.
+            # I'm a C++ developed, my religion forbids me throwing from a dtor
+            pass
 
     @staticmethod
     def _make_attrs(attrs):
