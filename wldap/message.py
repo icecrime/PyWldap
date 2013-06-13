@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ctypes import byref, c_void_p, string_at
+from ctypes import byref, string_at
 from itertools import takewhile
 
 from wldap import wldap32_dll as dll
+from wldap.wldap32_structures import BerElement
 
 
 class MessageAttribute(object):
@@ -37,11 +38,14 @@ class MessageAttribute(object):
     def binary_values(self):
         # Cf. MSDN: ldap_get_values_len should be used instead of
         # ldap_get_values for binary data.
-        val = dll.ldap_get_values_len(self._ldap, self._message, self.name)
-        idx = 0
-        while val[idx]:  # No need to check for null: done upon ctypes return
-            yield string_at(val[idx].contents.bv_val, val[idx].contents.bv_len)
-        dll.ldap_value_free_len(val)
+        try:
+            idx = 0
+            val = dll.ldap_get_values_len(self._ldap, self._message, self.name)
+            while val[idx]:  # Check for null is done upon ctypes return
+                yield string_at(val[idx].contents.bv_val,
+                                val[idx].contents.bv_len)
+        finally:
+            dll.ldap_value_free_len(val)
 
     @property
     def values(self):
@@ -64,7 +68,7 @@ class MessageEntryIterator(object):
         """
         self._ldap = ldap
         self._message = message
-        self._berElem = c_void_p()
+        self._berElem = BerElement.pointer()
         self._attribute = dll.ldap_first_attribute(self._ldap, self._message,
                                                    byref(self._berElem))
 

@@ -14,6 +14,8 @@
 
 from ctypes import POINTER, cdll, c_int, c_void_p, c_ulong, c_wchar_p
 
+from wldap.exceptions import LdapError
+from wldap.wldap32_constants import ReturnCodes
 from wldap.wldap32_structures import BerElement, LDAP_BERVAL, LDAP_TIMEVAL
 from wldap.wldap32_structures import LDAP, LDAPMessage, LDAPMod
 
@@ -40,29 +42,31 @@ from wldap.wldap32_structures import LDAP, LDAPMessage, LDAPMod
 dll = cdll.Wldap32
 
 
-# Every API calls errors will be raised as an LdapError which holds the error
-# code and the associated message.
+def errcheck_compare(result, func, arguments):
+    """Error checking strategy for compare functions, which return either
+    LDAP_COMPARE_TRUE, LDAP_COMPARE_FALSE, or an error code.
 
-class LdapError(Exception):
-    def __init__(self, error_code=None):
-        self.code = error_code or LdapGetLastError()
+    Raise an LdapError if the returned value is neither LDAP_COMPARE_TRUE or
+    LDAP_COMPARE_FALSE.
+    """
+    if result == ReturnCodes.LDAP_COMPARE_TRUE:
+        return True
+    if result == ReturnCodes.LDAP_COMPARE_FALSE:
+        return False
+    raise LdapError(error_code=result)
 
-    @property
-    def message(self):
-        if not hasattr(self, 'message'):
-            self.message = ldap_err2string(self.error_code)
-        return self.message
-
-
-# Error check functions depend on the type of result.
 
 def errcheck_pointer(result, func, arguments):
     """Error checking strategy for functions returning a pointer.
 
-    Raise an LdapError if the returned pointer is NULL.
+    Raise an LdapError if the returned pointer is NULL and LdapGetLastError()
+    is not LDAP_SUCCESS (the `ldap_next_*` family returns NULL pointer when the
+    iterator is exhausted, and it shouldn't raise an LdapError).
     """
     if not result:  # c_void_p has __nonzero__
-        raise LdapError(func, arguments)
+        code = LdapGetLastError()
+        if code != ReturnCodes.LDAP_SUCCESS:
+            raise LdapError(code)
     return result
 
 
@@ -72,7 +76,7 @@ def errcheck_retcode(result, func, arguments):
 
     Raise an LdapError if the returned code is different from 0.
     """
-    if result != 0:
+    if result != ReturnCodes.LDAP_SUCCESS:
         raise LdapError(error_code=result)
     return result
 
@@ -146,7 +150,7 @@ exposed_functions = [
         'ldap_abandon',
         c_ulong,
         [LDAP.pointer, c_ulong],
-        errcheck_sentinel
+        None  # No server response from ldap_abandon
     ],
 
     # ULONG ldap_bind_s(
@@ -198,6 +202,34 @@ exposed_functions = [
         c_ulong,
         [c_void_p],
         errcheck_retcode
+    ],
+
+    # ULONG ldap_compare_s(
+    #   _In_  LDAP *ld,
+    #   _In_  PCHAR dn,
+    #   _In_  PCHAR attr,
+    #   _In_  PCHAR value
+    # );
+    [
+        'ldap_compare_s',
+        'ldap_compare_sW',
+        c_ulong,
+        [LDAP.pointer, c_wchar_p, c_wchar_p, c_wchar_p],
+        errcheck_compare
+    ],
+
+    # ULONG ldap_compare(
+    #   _In_  LDAP *ld,
+    #   _In_  PCHAR dn,
+    #   _In_  PCHAR attr,
+    #   _In_  PCHAR value
+    # );
+    [
+        'ldap_compare',
+        'ldap_compareW',
+        c_ulong,
+        [LDAP.pointer, c_wchar_p, c_wchar_p, c_wchar_p],
+        errcheck_sentinel
     ],
 
     # ULONG ldap_count_entries(

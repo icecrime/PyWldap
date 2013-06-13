@@ -42,7 +42,7 @@ class Changeset(object):
         Args:
             attr: the name of the attribute to which values should be added
             values: a sequence of strings to be appended to the existing values
-                    in the attribute
+                in the attribute
         """
         return self._append(LDAPMod.LDAP_MOD_ADD, attr, str_values=values)
 
@@ -52,7 +52,7 @@ class Changeset(object):
         Args:
             attr: the name of the attribute to which values should be added
             values: a sequence of bytes to be appended to the existing values
-                    in the attribute
+                in the attribute
         """
         return self._append(LDAPMod.LDAP_MOD_ADD, attr, bin_values=values)
 
@@ -65,7 +65,7 @@ class Changeset(object):
         Args:
             attr: the name of the attribute from which values should be removed
             values: a sequence of strings to be deleted from the current
-                    attribute values
+                attribute values
         """
         return self._append(LDAPMod.LDAP_MOD_DELETE, attr, str_values=values)
 
@@ -78,7 +78,7 @@ class Changeset(object):
         Args:
             attr: the name of the attribute from which values should be removed
             values: a sequence of bytes to be deleted from the current
-                    attribute values
+                attribute values
         """
         return self._append(LDAPMod.LDAP_MOD_DELETE, attr, bin_values=values)
 
@@ -91,7 +91,7 @@ class Changeset(object):
         Args:
             attr: the name of the attribute where values should be replaced
             values: a sequence of strings to replace the current attribute
-                    values with
+                values with
         """
         return self._append(LDAPMod.LDAP_MOD_REPLACE, attr, str_values=values)
 
@@ -104,7 +104,7 @@ class Changeset(object):
         Args:
             attr: the name of the attribute where values should be replaced
             values: a sequence of bytes to replace the current attribute
-                    values with
+                values with
         """
         return self._append(LDAPMod.LDAP_MOD_REPLACE, attr, bin_values=values)
 

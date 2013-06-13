@@ -14,7 +14,6 @@
 
 from ctypes import POINTER, Structure, Union, addressof, cast
 from ctypes import c_char, c_long, c_ulong, c_wchar_p
-import sys
 
 
 class BerElement(Structure):

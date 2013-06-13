@@ -54,13 +54,13 @@ class TestWldap(unittest.TestCase):
 
     def test_ldap_search_s(self, dll):
         attr = ['attr1', 'attr2', 'attr3']
-        self.validate_search(dll, 'search_s', attr, 'search_sW')
+        self.validate_search_s(dll, 'search_s', attr, 'search_sW')
 
     def test_ldap_search_no_attrs(self, dll):
         self.validate_search(dll, 'search', [], 'searchW')
 
     def test_ldap_search_s_no_attrs(self, dll):
-        self.validate_search(dll, 'search_s', [], 'search_sW')
+        self.validate_search_s(dll, 'search_s', [], 'search_sW')
 
     def test_ldap_simple_bind(self, dll):
         args = ('dn', 'password')
@@ -83,13 +83,23 @@ class TestWldap(unittest.TestCase):
         cfunc = getattr(dll, 'ldap_' + (api_func or func))
         cfunc.assert_called_once_with(mock.ANY, *args)
 
-    def validate_search(self, dll, func, attr, api_func=None):
-        args = ('base', 'scope', 'filt', attr, 'attronly')
+    def validate_search_s(self, dll, func, attr, api_func=None):
+        args = ('base', 'scope', 'filt', attr, True)
         l = wldap.ldap()
         getattr(l, func)(*args)
 
         cfunc = getattr(dll, 'ldap_' + (api_func or func))
-        cargs = ('base', 'scope', 'filt', mock.ANY, 'attronly', mock.ANY)
+        cargs = ('base', 'scope', 'filt', mock.ANY, True, mock.ANY)
+        cfunc.assert_called_once_with(mock.ANY, *cargs)
+        self.assertSequenceEqual(cfunc.call_args[0][4], attr + [None])
+
+    def validate_search(self, dll, func, attr, api_func=None):
+        args = ('base', 'scope', 'filt', attr, True)
+        l = wldap.ldap()
+        getattr(l, func)(*args)
+
+        cfunc = getattr(dll, 'ldap_' + (api_func or func))
+        cargs = ('base', 'scope', 'filt', mock.ANY, True)
         cfunc.assert_called_once_with(mock.ANY, *cargs)
         self.assertSequenceEqual(cfunc.call_args[0][4], attr + [None])
 
