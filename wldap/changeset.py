@@ -14,7 +14,7 @@
 
 from ctypes import addressof
 
-from wldap32_structures import LDAPMod
+from wldap.wldap32_structures import LDAPMod
 
 
 class Changeset(object):
