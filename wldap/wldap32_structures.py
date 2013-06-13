@@ -124,9 +124,9 @@ class LDAPMod(Structure):
         self._values = [LDAP_BERVAL.from_value(v) for v in bin_values]
 
         # Create a nul-terminated array of structure addresses.
-        def _from_address(addr):
-            return cast(addressof(v), LDAP_BERVAL.pointer)
-        p_array = [_from_address(v) for v in self._values]
+        def _get_address(obj):
+            return cast(addressof(obj), LDAP_BERVAL.pointer)
+        p_array = [_get_address(v) for v in self._values]
         p_array.append(LDAP_BERVAL.pointer())
 
         # Convert to a LDAP_BERVAL** and store for good.

@@ -74,7 +74,7 @@ class TestChangeset(unittest.TestCase):
         self._common_bin(wldap.Changeset.add_binary,
                          LDAPMod.LDAP_MOD_ADD,
                          'attr',
-                         ['val1', 'val2'])
+                         [b'val1', b'val2'])
 
     def test_delete(self):
         self._common_str(wldap.Changeset.delete,
@@ -86,7 +86,7 @@ class TestChangeset(unittest.TestCase):
         self._common_bin(wldap.Changeset.delete_binary,
                          LDAPMod.LDAP_MOD_DELETE,
                          'attr',
-                         ['val1', 'val2'])
+                         [b'val1', b'val2'])
 
     def test_replace(self):
         self._common_str(wldap.Changeset.replace,
@@ -98,7 +98,7 @@ class TestChangeset(unittest.TestCase):
         self._common_bin(wldap.Changeset.replace_binary,
                          LDAPMod.LDAP_MOD_REPLACE,
                          'attr',
-                         ['val1', 'val2'])
+                         [b'val1', b'val2'])
 
 
 @mock.patch('wldap.wldap32_dll.dll')
