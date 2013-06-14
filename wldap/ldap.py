@@ -57,7 +57,7 @@ class ldap(object):
         structure suitable to pass to Wldap32.
         """
         timeval = None
-        if timeout_seconds:
+        if timeout_seconds is not None:
             timeval = LDAP_TIMEVAL.from_fractional_seconds(timeout_seconds)
         return timeval
 
@@ -217,7 +217,8 @@ class ldap(object):
         """
         res = LDAPMessage.pointer()
         timeval = self._make_timeval(timeout_seconds)
-        ret = dll.ldap_result(self._l, msgid, all_, byref(timeval), byref(res))
+        ret = dll.ldap_result(self._l, msgid, all_, timeval and byref(timeval),
+                              byref(res))
         return Message(self._l, res) if ret != 0 else None  # 0 is a timeout
 
     def search_s(self, base, scope, filt, attr, attronly):

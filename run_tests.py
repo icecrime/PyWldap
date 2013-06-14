@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # Copyright 2013 Arnaud Porterie
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,23 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-class Error(Exception):
-    """Base exception type for the wldap package."""
-    pass
+import unittest
+from tests import *
 
 
-class LdapError(Error):
-    """Exception type for Wldap32 errors."""
-
-    def __init__(self, error_code=None):
-        from wldap.wldap32_dll import LdapGetLastError, ldap_err2string
-        code = error_code or LdapGetLastError()
-        super(LdapError, self).__init__(ldap_err2string(code), code)
-
-
-class TimeoutError(Error):
-    """Raised by Future.result() and Future.exceptions(), (loosely) as
-    described in PEP-3148.
-    """
-    pass
+if __name__ == "__main__":
+    unittest.main()

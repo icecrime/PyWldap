@@ -45,7 +45,7 @@ class Future(object):
         # because _get_result catches and store any exception.
         if self._exception or self._result:
             return True
-        return self._get_result(self, 0) is not None
+        return self._get_result(0) is not None
 
     def _get_result(self, timeout_seconds=None):
         try:
@@ -59,7 +59,7 @@ class Future(object):
 
     def result(self, timeout_seconds=None):
         if not (self._exception or self._result):
-            if self._get_result(self, timeout_seconds) is None:
+            if self._get_result(timeout_seconds) is None:
                 raise TimeoutError()
         if self._exception:
             raise self._exception

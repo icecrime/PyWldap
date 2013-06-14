@@ -63,7 +63,7 @@ class LDAP_TIMEVAL(Structure):
     def from_fractional_seconds(fractional_seconds):
         from math import modf
         frac, secs = modf(fractional_seconds)
-        return LDAP_TIMEVAL(int(secs), int(frac * 10e-6))
+        return LDAP_TIMEVAL(int(secs), int(frac * 10e5))
 
 # Nested 'typedef' for pointer type
 LDAP_TIMEVAL.pointer = POINTER(LDAP_TIMEVAL)

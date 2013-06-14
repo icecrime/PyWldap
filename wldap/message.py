@@ -38,9 +38,9 @@ class MessageAttribute(object):
     def binary_values(self):
         # Cf. MSDN: ldap_get_values_len should be used instead of
         # ldap_get_values for binary data.
+        val = dll.ldap_get_values_len(self._ldap, self._message, self.name)
         try:
             idx = 0
-            val = dll.ldap_get_values_len(self._ldap, self._message, self.name)
             while val[idx]:  # Check for null is done upon ctypes return
                 yield string_at(val[idx].contents.bv_val,
                                 val[idx].contents.bv_len)
@@ -52,8 +52,11 @@ class MessageAttribute(object):
         # Cf. MSDN ldap_get_values documentation: 'Call ldap_value_free to
         # release the returned value when it is no longer required'.
         val = dll.ldap_get_values(self._ldap, self._message, self.name)
-        yield takewhile(bool, val)
-        dll.ldap_value_free(val)
+        try:
+            for item in takewhile(bool, val):
+                yield item
+        finally:
+            dll.ldap_value_free(val)
 
 
 class MessageEntryIterator(object):
