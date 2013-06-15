@@ -40,7 +40,7 @@ class ldap(object):
         try:
             if not self._unbound:
                 self.unbind()
-        except LdapError:
+        except LdapError:  # pragma: no cover
             # I'm a C++ developed, my religion forbids me throwing from a dtor
             pass
 

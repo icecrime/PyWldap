@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from tests.test_changeset import *
-from tests.test_ldap import *
-from tests.test_message import *
-from tests.test_wldap32_dll import *
-from tests.test_wldap32_structures import *
+import unittest
+
+from wldap.message import Message
+
+
+class TestMessage(unittest.TestCase):
+    pass

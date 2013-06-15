@@ -1,2 +1,4 @@
-.tox
 *.pyc
+.coverage
+.tox
+MANIFEST

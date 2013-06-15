@@ -14,26 +14,55 @@
 
 import unittest
 
+# Mock is standard with Python 3.3 but is an external dependency with 2.x, and
+# listed in requirements.txt as such.
+try:
+    from unittest import mock
+except ImportError:
+    import mock
+
 from wldap.exceptions import LdapError
 from wldap.wldap32_constants import ReturnCodes
-from wldap.wldap32_dll import errcheck_compare, errcheck_pointer
+from wldap.wldap32_dll import (errcheck_compare, errcheck_pointer,
+                               errcheck_retcode, errcheck_sentinel)
 
 
 class TestErrCheck(unittest.TestCase):
 
     def test_errcheck_compare_ok(self):
         result = ReturnCodes.LDAP_COMPARE_TRUE
-        ret = errcheck_compare(result, 'func', 'args')
-        self.assertEqual(ret, True)
+        self.assertEqual(True, errcheck_compare(result, 'func', 'args'))
 
     def test_errcheck_compare_ko(self):
         result = ReturnCodes.LDAP_COMPARE_FALSE
-        ret = errcheck_compare(result, 'func', 'args')
-        self.assertEqual(ret, False)
+        self.assertEqual(False, errcheck_compare(result, 'func', 'args'))
 
     def test_errcheck_compare_error(self):
         self.assertRaises(LdapError, errcheck_compare, 'dummy', 'func', 'args')
 
     def test_errcheck_pointer_ok(self):
-        ret = errcheck_pointer(0x01, 'func', 'args')
-        self.assertEqual(ret, 0x01)
+        self.assertEqual(1, errcheck_pointer(1, 'func', 'args'))
+
+    def test_errcheck_pointer_null_error(self):
+        with mock.patch('wldap.wldap32_dll.LdapGetLastError') as m:
+            m.return_value = ReturnCodes.LDAP_TIMEOUT
+            self.assertRaises(LdapError, errcheck_pointer, 0, 'func', 'args')
+
+    def test_errcheck_pointer_null_success(self):
+        with mock.patch('wldap.wldap32_dll.LdapGetLastError') as m:
+            m.return_value = ReturnCodes.LDAP_SUCCESS
+            self.assertEqual(0, errcheck_pointer(0, 'func', 'args'),)
+
+    def test_errcheck_retcode_ok(self):
+        result = ReturnCodes.LDAP_SUCCESS
+        self.assertEqual(result, errcheck_retcode(result, 'func', 'args'))
+
+    def test_errcheck_retcode_ko(self):
+        result = ReturnCodes.LDAP_TIMEOUT
+        self.assertRaises(LdapError, errcheck_retcode, result, 'func', 'args')
+
+    def test_errcheck_sentinel_ok(self):
+        self.assertEqual(0, errcheck_sentinel(0, 'func', 'args'))
+
+    def test_errcheck_sentinel_ko(self):
+        self.assertRaises(LdapError, errcheck_sentinel, -1, 'func', 'args')
