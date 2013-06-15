@@ -29,6 +29,9 @@ class Future(object):
         self._msgid = msgid
         self._result = None
 
+    def _has_result_or_exc(self):
+        return not (self._exception is None and self._result is None)
+
     def cancel(self):
         self._cancelled = self._ldap.abandon(self._msgid)
         return self._cancelled
@@ -37,31 +40,35 @@ class Future(object):
         return self._cancelled
 
     def exception(self, timeout_seconds=None):
-        self.result(timeout_seconds)
+        if not self._has_result_or_exc():
+            self._get_result(timeout_seconds)
         return self._exception
 
     def done(self):
         # Take a peek at the result with a timeout value of 0. This can't raise
         # because _get_result catches and store any exception.
-        if self._exception or self._result:
+        if self._has_result_or_exc():
             return True
-        return self._get_result(0) is not None
+        return self._get_result(0, False) is not None
 
-    def _get_result(self, timeout_seconds=None):
+    def _get_result(self, timeout_seconds=None, raise_timeout=True):
         try:
             LDAP_MSG_ALL = 0x1
             ret = self._ldap.result(self._msgid, LDAP_MSG_ALL, timeout_seconds)
-            if ret is not None:  # Store the result if it isn't a timeout
-                self._result = ret
-            return ret
         except Exception as exc:
+            ret = None
             self._exception = exc
+        else:
+            if ret is not None:
+                self._result = ret
+            elif raise_timeout:
+                raise TimeoutError()
+        return ret
 
     def result(self, timeout_seconds=None):
-        if not (self._exception or self._result):
-            if self._get_result(timeout_seconds) is None:
-                raise TimeoutError()
-        if self._exception:
+        if not self._has_result_or_exc():
+            self._get_result(timeout_seconds)
+        if self._exception is not None:
             raise self._exception
         return self._result
 

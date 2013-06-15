@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from ctypes import cast
 import os
 import unittest
 
@@ -25,6 +26,7 @@ except ImportError:
 # Wldap opens the wldap at import time, so we have to mock.patch early.
 with mock.patch('ctypes.cdll'):
     import wldap
+from wldap.wldap32_structures import LDAP_TIMEVAL
 
 
 @mock.patch('wldap.wldap32_dll.dll')
@@ -58,6 +60,23 @@ class TestWldap(unittest.TestCase):
 
     def test_ldap_bind_s(self, dll):
         self.assert_forward(dll, 'bind_s', ('dn', 'cred', 'method'), 'bind_sW')
+
+    def test_ldap_result_timeout(self, dll):
+        l = wldap.ldap()
+        l.result(0, 0, 1.3)
+        dll.ldap_result.assert_called_once_with(l._l, 0, 0, mock.ANY, mock.ANY)
+
+        timeval = cast(dll.ldap_result.call_args[0][3], LDAP_TIMEVAL.pointer)
+        self.assertEqual(timeval.contents.tv_sec, 1)
+        self.assertEqual(timeval.contents.tv_usec, 300000)
+
+    def test_ldap_result_timeout_infinite(self, dll):
+        l = wldap.ldap()
+        l.result(0, 0, None)
+        dll.ldap_result.assert_called_once_with(l._l, 0, 0, mock.ANY, mock.ANY)
+
+        timeval = dll.ldap_result.call_args[0][3]
+        self.assertEqual(timeval, None)
 
     def test_ldap_search(self, dll):
         attr = ['a1', 'a2']

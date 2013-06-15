@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from tests.test_changeset import *
+from tests.test_future import *
 from tests.test_ldap import *
 from tests.test_message import *
 from tests.test_wldap32_dll import *
