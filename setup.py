@@ -17,7 +17,7 @@ from distutils.core import setup
 
 setup(
     name='PyWldap',
-    version='0.2.1',
+    version='0.3.0',
     description='Python wrapper over Wldap32 Windows library',
 
     author='Arnaud Porterie',
