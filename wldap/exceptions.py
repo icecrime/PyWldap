@@ -12,8 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from wldap.exceptions import LdapError, TimeoutError
-from wldap.ldap import ldap
-from wldap.changeset import Changeset
-from wldap.message import parse_message
-from wldap.wldap32_constants import *
+
+class Error(Exception):
+    """Base exception type for the wldap package."""
+    pass
+
+
+class LdapError(Error):
+    """Exception type for Wldap32 errors."""
+
+    def __init__(self, error_code=None):
+        from wldap.wldap32_dll import LdapGetLastError, ldap_err2string
+        code = error_code or LdapGetLastError()
+        super(LdapError, self).__init__(ldap_err2string(code), code)
+
+
+class TimeoutError(Error):
+    """Raised by Future.result() and Future.exceptions(), (loosely) as
+    described in PEP-3148.
+    """
+    pass
