@@ -114,4 +114,4 @@ class Changeset(object):
         """
         if self.changes == []:
             return None
-        return [addressof(item) for item in self.changes] + [None]
+        return [LDAPMod.pointer(item) for item in self.changes] + [None]

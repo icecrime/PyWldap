@@ -232,6 +232,18 @@ exposed_functions = [
         errcheck_sentinel
     ],
 
+    # ULONG ldap_connect(
+    #   _In_  LDAP *ld,
+    #   _In_  LDAP_TIMEVAL *timeout
+    # );
+    [
+        'ldap_connect',
+        'ldap_connect',
+        c_ulong,
+        [LDAP.pointer, LDAP_TIMEVAL.pointer],
+        errcheck_retcode
+    ],
+
     # ULONG ldap_count_entries(
     #   _In_  LDAP *ld,
     #   _In_  LDAPMessage *res

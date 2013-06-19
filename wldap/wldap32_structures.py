@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ctypes import POINTER, Structure, Union, addressof, cast
+from ctypes import POINTER, Structure, Union, cast
 from ctypes import c_char, c_long, c_ulong, c_wchar_p
 
 
@@ -124,9 +124,7 @@ class LDAPMod(Structure):
         self._values = [LDAP_BERVAL.from_value(v) for v in bin_values]
 
         # Create a nul-terminated array of structure addresses.
-        def _get_address(obj):
-            return cast(addressof(obj), LDAP_BERVAL.pointer)
-        p_array = [_get_address(v) for v in self._values]
+        p_array = [LDAP_BERVAL.pointer(v) for v in self._values]
         p_array.append(LDAP_BERVAL.pointer())
 
         # Convert to a LDAP_BERVAL** and store for good.

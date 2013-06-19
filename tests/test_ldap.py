@@ -26,7 +26,8 @@ except ImportError:
 # Wldap opens the wldap at import time, so we have to mock.patch early.
 with mock.patch('ctypes.cdll'):
     import wldap
-from wldap.wldap32_structures import LDAP_TIMEVAL
+from wldap.exceptions import LdapError
+from wldap.wldap32_structures import LDAP_TIMEVAL, LDAPMod
 
 
 @mock.patch('wldap.wldap32_dll.dll')
@@ -55,11 +56,124 @@ class TestWldap(unittest.TestCase):
     def test_ldap_abandon(self, dll):
         self.assert_forward(dll, 'abandon', (os.urandom(64),))
 
+    def test_ldap_add(self, dll):
+        l = wldap.ldap()
+        l.add('dn', ('attr1', ['val1']), ('attr2', ['val2.1', 'val2.2']))
+        dll.ldap_addW.assert_called_once_with(l._l, 'dn', mock.ANY)
+
+        mods = dll.ldap_addW.call_args[0][2]
+        self.assertEqual(mods[0].contents.mod_op, LDAPMod.LDAP_MOD_ADD)
+        self.assertEqual(mods[0].contents.mod_type, 'attr1')
+        self.assertEqual(mods[0].contents.mod_vals.modv_strvals[0], 'val1')
+        self.assertEqual(mods[0].contents.mod_vals.modv_strvals[1], None)
+
+        self.assertEqual(mods[1].contents.mod_op, LDAPMod.LDAP_MOD_ADD)
+        self.assertEqual(mods[1].contents.mod_type, 'attr2')
+        self.assertEqual(mods[1].contents.mod_vals.modv_strvals[0], 'val2.1')
+        self.assertEqual(mods[1].contents.mod_vals.modv_strvals[1], 'val2.2')
+        self.assertEqual(mods[1].contents.mod_vals.modv_strvals[2], None)
+
+        self.assertEqual(mods[2], None)
+
+    def test_ldap_add_s(self, dll):
+        l = wldap.ldap()
+        l.add_s('dn', ('attr1', ['val1']), ('attr2', ['val2.1', 'val2.2']))
+        dll.ldap_add_sW.assert_called_once_with(l._l, 'dn', mock.ANY)
+
+        mods = dll.ldap_add_sW.call_args[0][2]
+        self.assertEqual(mods[0].contents.mod_op, LDAPMod.LDAP_MOD_ADD)
+        self.assertEqual(mods[0].contents.mod_type, 'attr1')
+        self.assertEqual(mods[0].contents.mod_vals.modv_strvals[0], 'val1')
+        self.assertEqual(mods[0].contents.mod_vals.modv_strvals[1], None)
+
+        self.assertEqual(mods[1].contents.mod_op, LDAPMod.LDAP_MOD_ADD)
+        self.assertEqual(mods[1].contents.mod_type, 'attr2')
+        self.assertEqual(mods[1].contents.mod_vals.modv_strvals[0], 'val2.1')
+        self.assertEqual(mods[1].contents.mod_vals.modv_strvals[1], 'val2.2')
+        self.assertEqual(mods[1].contents.mod_vals.modv_strvals[2], None)
+
+        self.assertEqual(mods[2], None)
+
     def test_ldap_bind(self, dll):
         self.assert_forward(dll, 'bind', ('dn', 'cred', 'method'), 'bindW')
 
     def test_ldap_bind_s(self, dll):
         self.assert_forward(dll, 'bind_s', ('dn', 'cred', 'method'), 'bind_sW')
+
+    def test_ldap_check_filter(self, dll):
+        l = wldap.ldap()
+        l.check_filter('filt')
+        dll.ldap_check_filterW.assert_called_once_with(l._l, 'filt')
+
+    def test_ldap_check_filter_ko(self, dll):
+        dll.ldap_err2string.return_value = 'test'
+        exc = LdapError(0)
+        dll.ldap_check_filterW.side_effect = exc
+
+        l = wldap.ldap()
+        self.assertEqual(l.check_filter('filt'), exc)
+        dll.ldap_check_filterW.assert_called_once_with(l._l, 'filt')
+
+    def test_ldap_connect(self, dll):
+        l = wldap.ldap()
+        l.connect(None)
+        dll.ldap_connect.assert_called_once_with(l._l, None)
+
+    def test_ldap_delete(self, dll):
+        l = wldap.ldap()
+        l.delete('dn')
+        dll.ldap_deleteW.assert_called_once_with(l._l, 'dn')
+
+    def test_ldap_delete_s(self, dll):
+        l = wldap.ldap()
+        l.delete_s('dn')
+        dll.ldap_delete_sW.assert_called_once_with(l._l, 'dn')
+
+    def test_ldap_modify(self, dll):
+        changeset = wldap.Changeset()
+        changeset.replace('attr1', ['val1'])
+        changeset.add('attr2', ['val2.1', 'val2.2'])
+
+        l = wldap.ldap()
+        l.modify('dn', changeset)
+        dll.ldap_modifyW.assert_called_once_with(l._l, 'dn', mock.ANY)
+
+        mods = dll.ldap_modifyW.call_args[0][2]
+        self.assertEqual(mods[0].contents.mod_op, LDAPMod.LDAP_MOD_REPLACE)
+        self.assertEqual(mods[0].contents.mod_type, 'attr1')
+        self.assertEqual(mods[0].contents.mod_vals.modv_strvals[0], 'val1')
+        self.assertEqual(mods[0].contents.mod_vals.modv_strvals[1], None)
+
+        self.assertEqual(mods[1].contents.mod_op, LDAPMod.LDAP_MOD_ADD)
+        self.assertEqual(mods[1].contents.mod_type, 'attr2')
+        self.assertEqual(mods[1].contents.mod_vals.modv_strvals[0], 'val2.1')
+        self.assertEqual(mods[1].contents.mod_vals.modv_strvals[1], 'val2.2')
+        self.assertEqual(mods[1].contents.mod_vals.modv_strvals[2], None)
+
+        self.assertEqual(mods[2], None)
+
+    def test_ldap_modify_s(self, dll):
+        changeset = wldap.Changeset()
+        changeset.replace('attr1', ['val1'])
+        changeset.add('attr2', ['val2.1', 'val2.2'])
+
+        l = wldap.ldap()
+        l.modify_s('dn', changeset)
+        dll.ldap_modify_sW.assert_called_once_with(l._l, 'dn', mock.ANY)
+
+        mods = dll.ldap_modify_sW.call_args[0][2]
+        self.assertEqual(mods[0].contents.mod_op, LDAPMod.LDAP_MOD_REPLACE)
+        self.assertEqual(mods[0].contents.mod_type, 'attr1')
+        self.assertEqual(mods[0].contents.mod_vals.modv_strvals[0], 'val1')
+        self.assertEqual(mods[0].contents.mod_vals.modv_strvals[1], None)
+
+        self.assertEqual(mods[1].contents.mod_op, LDAPMod.LDAP_MOD_ADD)
+        self.assertEqual(mods[1].contents.mod_type, 'attr2')
+        self.assertEqual(mods[1].contents.mod_vals.modv_strvals[0], 'val2.1')
+        self.assertEqual(mods[1].contents.mod_vals.modv_strvals[1], 'val2.2')
+        self.assertEqual(mods[1].contents.mod_vals.modv_strvals[2], None)
+
+        self.assertEqual(mods[2], None)
 
     def test_ldap_result_timeout(self, dll):
         l = wldap.ldap()

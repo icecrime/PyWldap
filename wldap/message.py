@@ -37,13 +37,18 @@ class MessageAttribute(object):
     @property
     def binary_values(self):
         # Cf. MSDN: ldap_get_values_len should be used instead of
-        # ldap_get_values for binary data.
+        # ldap_get_values for binary data. The function may return NULL when no
+        # attributes values were found.
         val = dll.ldap_get_values_len(self._ldap, self._message, self.name)
+        if val is None:
+            return
+
         try:
             idx = 0
-            while val[idx]:  # Check for null is done upon ctypes return
+            while val[idx]:
                 yield string_at(val[idx].contents.bv_val,
                                 val[idx].contents.bv_len)
+                idx = idx + 1
         finally:
             dll.ldap_value_free_len(val)
 
@@ -52,6 +57,9 @@ class MessageAttribute(object):
         # Cf. MSDN ldap_get_values documentation: 'Call ldap_value_free to
         # release the returned value when it is no longer required'.
         val = dll.ldap_get_values(self._ldap, self._message, self.name)
+        if val is None:
+            return
+
         try:
             for item in takewhile(bool, val):
                 yield item
@@ -80,16 +88,16 @@ class MessageEntryIterator(object):
         # stepping through a list of attributes and ptr is non-NULL, free the
         # pointer by calling ber_free( ptr, 0 ). Be aware that you must pass
         # the second parameter as 0 (zero) in this call.
-        if hasattr(self, '_berElem') and self._berElem:
+        if hasattr(self, '_berElem') and self._berElem:  # pragma: no cover
             dll.ber_free(self._berElem, 0)
 
-    def __next__(self):
+    def __next__(self):  # pragma: no cover
         return self.next()
 
     def next(self):
         # Because of the first / next API asymmetry, we're always 'off by one',
         # so the previously fetched value is tested before moving on.
-        if not self._attribute:
+        if self._attribute is None:
             raise StopIteration
 
         # Wrap the previously fetched value in a MessageAttribute object before
@@ -113,11 +121,14 @@ class MessageEntry(object):
         self._l = ldap
         self._message_entry = message_entry
 
+    def __getitem__(self, attributeName):
+        return MessageAttribute(self._l, self._message_entry, attributeName)
+
     def __iter__(self):
         return MessageEntryIterator(self._l, self._message_entry)
 
-    def __getitem__(self, attributeName):
-        return MessageAttribute(self._l, self._message_entry, attributeName)
+    def __len__(self):
+        return dll.ldap_count_entries(self._l, self._message_entry)
 
 
 class MessageIterator(object):
@@ -133,10 +144,7 @@ class MessageIterator(object):
         self._ldap = ldap
         self._current = dll.ldap_first_entry(self._ldap, message)
 
-    def __len__(self):
-        return dll.ldap_count_entries(self._ldap, self._current)
-
-    def __next__(self):
+    def __next__(self):  # pragma: no cover
         return self.next()
 
     def next(self):
@@ -181,14 +189,23 @@ class Message(object):
         return dll.ldap_count_entries(self._ldap, self._message)
 
 
-def parse_message(message):
-    """Builds a dictionary for the provided Message instance by iterating over
-    every attribute of every entry.
+def parse_message(msg):
+    """Builds a list of dictionaries for the provided Message instance by
+    iterating over every attribute of every message entry. Attribute values are
+    returned as unicode strings.
 
     Args:
-        message: a Message instance as returned, for example, by searching
+        message: a Message instance as obtained, for example, by searching
     """
-    output = {}
-    for entry in message:
-        output.update({a.name: list(a.values) for a in entry})
-    return output
+    return [{a.name: list(a.values) for a in entry} for entry in msg]
+
+
+def parse_binary_message(msg):
+    """Builds a list of dictionaries for the provided Message instance by
+    iterating over every attribute of every message entry. Attribute values are
+    returned as bytes (str object in Python 2.x, bytes object in 3.x).
+
+    Args:
+        message: a Message instance as obtained, for example, by searching
+    """
+    return [{a.name: list(a.binary_values) for a in entry} for entry in msg]

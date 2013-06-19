@@ -78,8 +78,8 @@ class ldap(object):
         Returns nothing, and raises LdapError on error.
         """
         changeset = Changeset()
-        [changeset.add(dn, attr, values) for attr, values in args]
-        dll.ldap_add(self._l, dn, changeset.to_api_param())
+        [changeset.add(attr, values) for attr, values in args]
+        dll.ldap_add_s(self._l, dn, changeset.to_api_param())
 
     def add(self, dn, *args):
         """Initiate an asynchronous add operation to a directory tree.
@@ -91,9 +91,9 @@ class ldap(object):
         Returns a Future object, and raises LdapError on error.
         """
         changeset = Changeset()
-        [changeset.add(dn, attr, values) for attr, values in args]
-        return Future(self, dll.ldap_add_s(self._l, dn,
-                                           changeset.to_api_param()))
+        [changeset.add(attr, values) for attr, values in args]
+        return Future(self, dll.ldap_add(self._l, dn,
+                                         changeset.to_api_param()))
 
     def bind_s(self, dn, cred, method):
         """Initiate a synchronous operation to authenticate the client to the
@@ -190,7 +190,7 @@ class ldap(object):
 
         Returns nothing, and raises LdapError on error.
         """
-        dll.ldap_modify(self._l, dn, changeset.to_api_param())
+        dll.ldap_modify_s(self._l, dn, changeset.to_api_param())
 
     def modify(self, dn, changeset):
         """Initiate an asynchronous modify operation to the directory tree.

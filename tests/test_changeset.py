@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ctypes import string_at, addressof
+from ctypes import addressof, string_at
 import unittest
 
 # Mock is standard with Python 3.3 but is an external dependency with 2.x, and
@@ -54,8 +54,8 @@ class TestChangeset(unittest.TestCase):
         self.assertValidBinAttributes(values, op.mod_vals.modv_bvals)
 
         c_values = changeset.to_api_param()
-        for idx, item in enumerate(changeset.changes):
-            self.assertEqual(c_values[idx], addressof(item))
+        for idx, mod in enumerate(changeset.changes):
+            self.assertEqual(addressof(c_values[idx].contents), addressof(mod))
         self.assertEqual(c_values[len(changeset.changes)], None)
 
     def _common_str(self, fn, mod_op, attr, values):
@@ -69,8 +69,8 @@ class TestChangeset(unittest.TestCase):
         self.assertValidStrAttributes(values, op.mod_vals.modv_strvals)
 
         c_values = changeset.to_api_param()
-        for idx, item in enumerate(changeset.changes):
-            self.assertEqual(c_values[idx], addressof(item))
+        for idx, mod in enumerate(changeset.changes):
+            self.assertEqual(addressof(c_values[idx].contents), addressof(mod))
         self.assertEqual(c_values[len(changeset.changes)], None)
 
     def test_add(self):
