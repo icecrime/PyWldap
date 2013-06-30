@@ -1,6 +1,5 @@
 [run]
-source=
-    wldap/
+source = wldap
 
 [report]
 exclude_lines =
