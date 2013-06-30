@@ -4,3 +4,5 @@ python:
   - "3.3"
 install: # No dependencies
 script:  python -m unittest discover
+after_success:
+  - coveralls
