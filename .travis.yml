@@ -3,6 +3,7 @@ python:
   - "2.7"
   - "3.3"
 install: # No dependencies
-script:  python -m unittest discover
+script:
+  - python -m unittest discover
 after_success:
   - coveralls
