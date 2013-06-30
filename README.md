@@ -1,7 +1,7 @@
 PyWldap
 =======
 
-[![Build Status](https://travis-ci.org/icecrime/PyWldap.png)](https://travis-ci.org/icecrime/PyWldap)
+[![Build Status](https://travis-ci.org/icecrime/PyWldap.png)](https://travis-ci.org/icecrime/PyWldap) [![Code Coverage](https://coveralls.io/repos/icecrime/PyWldap/badge.png)](https://coveralls.io/r/icecrime/PyWldap)
 
 Python wrapper over Windows Wldap32 library.
 
