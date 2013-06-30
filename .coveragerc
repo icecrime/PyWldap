@@ -1,6 +1,3 @@
-[run]
-source = wldap
-
 [report]
 exclude_lines =
     pragma: no cover
