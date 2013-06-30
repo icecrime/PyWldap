@@ -1,2 +1,2 @@
+coveralls
 mock
-python-coveralls
